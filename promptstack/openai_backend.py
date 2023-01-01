@@ -5,8 +5,9 @@ import os
 from loguru import logger
 from time import sleep
 
-from promptstack import *
+
 import openai
+from .promptstack import *
 from .subprompt import SubPrompt
 
 from transformers import GPT2Tokenizer
@@ -37,6 +38,7 @@ def GPT3CompletionLimits(min_prompt:int,
 
 
 
+RETRY_COUNT : int  = 5
 
 class OpenAIModelTask(ModelTask):
     """
@@ -45,7 +47,7 @@ class OpenAIModelTask(ModelTask):
 
     User doesn't usually need to worry about this as this is used internally to base CompletionTask.
     """
-    RETRY_COUNT : int  = 5
+
     config      : ModelConfig
 
     def token_len(self, text : str) -> int:
@@ -60,17 +62,22 @@ class OpenAIModelTask(ModelTask):
         """
         return the completion string for the specified prompt, subject to max_tokens limit
         """
+        print(prompt)
+        print(max_completion_tokens)
         def completion():
+            print(self.config.model)
+            
             resp = openai.Completion.create(prompt      = prompt,
-                                            max_tokens  = max_completion_tokens,                                            
+                                            max_tokens  = max_completion_tokens,
                                             engine      = self.config.model,
                                             temperature = self.config.temperature,
                                             top_p       = self.config.top_p,
                                             stop        = self.config.stop)
 
             return resp.choices[0].text
-            
-        for i in range(OpenAIModelTask.RETRY_COUNT):
+        return completion()
+    
+        for i in range(RETRY_COUNT):
             try:
                 return completion()
             except openai.error.ServiceUnavailableError:
@@ -103,15 +110,14 @@ class OpenAIBackend(ModelBackend):
     name = "OpenAI-API"
 
     def model_task(self, config : ModelConfig) -> ModelTask:
-        return OpenAIModelTask(config)
+        assert(config.model in OPENAI_COMPLETION_MODELS)                
+        return OpenAIModelTask(config=config)
     
     def __init__(self):
         try:
             openai.api_key = os.environ["OPENAI_API_KEY"]
         except:
             raise Exception("Set OPENAI_API_KEY environment variable to your OPENAI API Key")
-
-        assert(config.model in OPENAI_COMPLETION_MODELS)        
         super().__init__()
 
     

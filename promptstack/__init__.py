@@ -1,6 +1,6 @@
-from promptstack import *
+from .promptstack import *
 
-from .openai import OpenAIBackend
+from .openai_backend import OpenAIBackend
 
 OPENAI_BACKEND = OpenAIBackend()
 

@@ -4,8 +4,8 @@
 
 from time import time
 from typing import Optional, List
-from subprompt import SubPrompt
-from exceptions import *
+from .subprompt import SubPrompt
+from .exceptions import *
 
 from pydantic import  BaseModel, ValidationError, validator, Field, condecimal
 
@@ -20,7 +20,7 @@ class ModelConfig(BaseModel):
     model       :  str                          # model name
     temperature :  Optional[float]     = 1      # model sampling temperature in [0,1]
     top_p       :  Optional[float]     = 1      # sample from top_p cummulative token probability only
-    stop        :  Optional[List[str]] = []     # additional stop sequence strings
+    stop        :  Optional[List[str]] = None   # additional stop sequence strings
 
     
     
@@ -59,80 +59,6 @@ class CompletionLimits(BaseModel):
         return the maximum prompt size in tokens
         """
         return self.max_context - self.min_completion
-
-
-
-class CompletionTask(BaseModel):
-    """
-    A LLM completion task that shares a particular llm configuration and prompt/completion limit structure. 
-    This would typically be a base class for an application-specific completion task which would typically
-    include task-specific prompts/prompt stacks.
-    """
-    backend     : ModelBackend
-    config      : ModelConfig
-    limits      : CompletionLimits
-
-    def __init__(self,
-                 backend     : ModelBackend,
-                 config      : ModelConfig,
-                 limits      : CompletionLimits) -> "CompletionTask":
-
-        self._model_task = backend.model_task(config)
-        
-        super().__init__(name=name, backend=backend, config=config, limits=limits)
-        
-
-    def subprompt(self,
-                  text: str,
-                  max_tokens=None,
-                  truncate=False,
-                  precise=False) -> SubPrompt:
-        """
-        return model-tokenizer specific subprompt
-        """
-        return self._model_task.subprompt(text=text, max_tokens=max_tokens, truncate=truncate, precise=precise)
-
-
-    def max_prompt_tokens(self) -> int:
-        return self.limits.max_prompt_tokens()
-
-    
-    def completion(self, prompt : SubPrompt) -> Completion:
-        """
-        Prompt the configued model with the specified prompt and return the resulting Completion,
-        subject to task configuration and limits
-        """
-        # check prompt limits and return max completion size to request
-        # given the size of the prompt and the configured limits
-        max_completion = self.limits.max_completion_tokens(prompt)
-        
-        # perform the completion inference
-        text = self._model_task.completion(prompt                = str(prompt),
-                                           max_completion_tokens = max_completion)
-
-        completion = Completion(task        = self,
-                                prompt      = str(prompt),
-                                text        = text)
-
-        return completion
-
-
-
-class Completion(BaseModel):
-    """
-    An LLM completion, returned by CompletionTask.completion()
-    """
-    task       : CompletionTask     # the task that created this completion
-    prompt     : str                #  the full prompt input
-    text       : str                #  the completion text output from the model
-    created_at : timestamp = Field(default_factory=time)  
-
-    def __str__(self):
-        """
-        str(Completion) returns the completion text for convenience
-        """
-        return self.text
-
 
 
 
@@ -182,5 +108,82 @@ class ModelBackend(BaseModel):
 
     def model_task(self, config : ModelConfig) -> ModelTask:
         pass
+    
+
 
     
+    
+class CompletionTask(BaseModel):
+    """
+    A LLM completion task that shares a particular llm configuration and prompt/completion limit structure. 
+    This would typically be a base class for an application-specific completion task which would typically
+    include task-specific prompts/prompt stacks.
+    """
+    backend     : ModelBackend
+    config      : ModelConfig
+    limits      : CompletionLimits
+    model_task  : ModelTask
+    
+    def __init__(self,
+                 backend     : ModelBackend,
+                 config      : ModelConfig,
+                 limits      : CompletionLimits) -> "CompletionTask":
+
+        _model_task = backend.model_task(config)
+        
+        super().__init__(backend=backend, config=config, limits=limits, model_task=_model_task)
+        
+
+    def subprompt(self,
+                  text: str,
+                  max_tokens=None,
+                  truncate=False,
+                  precise=False) -> SubPrompt:
+        """
+        return model-tokenizer specific subprompt
+        """
+        return self.model_task.subprompt(text=text, max_tokens=max_tokens, truncate=truncate, precise=precise)
+
+
+    def max_prompt_tokens(self) -> int:
+        return self.limits.max_prompt_tokens()
+
+    
+    def completion(self, prompt : SubPrompt) -> "Completion":
+        """
+        Prompt the configued model with the specified prompt and return the resulting Completion,
+        subject to task configuration and limits
+        """
+        # check prompt limits and return max completion size to request
+        # given the size of the prompt and the configured limits
+        max_completion = self.limits.max_completion_tokens(prompt)
+        
+        # perform the completion inference
+        text = self.model_task.completion(prompt                = str(prompt),
+                                           max_completion_tokens = max_completion)
+
+        completion = Completion(task        = self,
+                                prompt      = str(prompt),
+                                text        = text)
+
+        return completion
+
+
+    
+
+    
+class Completion(BaseModel):
+    """
+    An LLM completion, returned by CompletionTask.completion()
+    """
+    task       : CompletionTask     # the task that created this completion
+    prompt     : str                #  the full prompt input
+    text       : str                #  the completion text output from the model
+    created_at : timestamp = Field(default_factory=time)  
+
+    def __str__(self):
+        """
+        str(Completion) returns the completion text for convenience
+        """
+        return self.text
+

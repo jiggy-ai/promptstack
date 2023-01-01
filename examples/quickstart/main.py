@@ -12,11 +12,10 @@ class StoryTask(CompletionTask):
 
     animals = ['cow', 'horse', 'pig', 'dog', 'cat']
 
-
     def make_story(self):
-        prompt = self.subprompt(StoryTask.PROMPT_PREFIX)
+        prompt = self.subprompt(self.PROMPT_PREFIX)
 
-        for animal in sample(StoryTask.animals, 2):
+        for animal in sample(self.animals, 2):
             prompt += animal
 
         print(f"prompt tokens: {len(prompt)}")
@@ -34,10 +33,11 @@ class StoryTask(CompletionTask):
         
         super().__init__(backend = OPENAI_BACKEND,
                          limits = limits,
-                         config = ModelConfig(name='text-davinci-003'))
+                         config = ModelConfig(model='text-davinci-003'))
         
             
 task = StoryTask()
+
 
 task.make_story()
 print()
