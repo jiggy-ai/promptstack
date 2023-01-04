@@ -13,7 +13,7 @@ from .exceptions import *
 # have found that marking truncated text as truncated stops the model from trying
 # to sometimes complete the missing text instead of performing other requested function
 # Use this string to mark truncated text
-TRUNCATED = "<TRUNCATED>"
+
 
 
 class SubPrompt:
@@ -30,7 +30,7 @@ class SubPrompt:
     actual token count by 1 token.  Tests on random strings show this occurs less
     than 1% of the time.
     """
-
+    TRUNCATED = "<TRUNCATED>"
             
     def truncate(self, max_tokens, precise=False):
         if precise == True:
@@ -39,16 +39,20 @@ class SubPrompt:
         # TODO: find precise truncation point using multiple calls to token_len()
         # TODO: consider option to truncating at sentence boundaries.
         while self.tokens > max_tokens:
-            split_point = int(len(self.text) * (max_tokens - self.TRUNCATED_LEN) / self.tokens)
+            split_point = int(len(self.text) * (max_tokens - self.truncated_token_len()) / self.tokens)
             # truncate at whitespace
             while not self.text[split_point].isspace():
                 split_point -= 1
-            self.text = self.text[:split_point] + TRUNCATED
+            self.text = self.text[:split_point] + SubPrompt.TRUNCATED
             self.tokens = self.token_len(self.text)
 
-        
-        
-    def __init__(self, text: str, max_tokens=None, truncate=False, precise=False, tokens=None, token_len_func=None) -> "SubPrompt":
+    def token_len(self):
+        pass
+
+    def truncated_token_len(self):
+        pass
+    
+    def __init__(self, text: str, max_tokens=None, truncate=False, precise=False, tokens=None) -> "SubPrompt":
         """
         Create a subprompt from the specified string.
         If max_tokens is specified, then the SubPrompt will be limited to max_tokens.
@@ -58,8 +62,6 @@ class SubPrompt:
         If precise is False then the truncation will be very quick but only approximate.
         If precise is True then the truncation will be slower but guaranteed to meet the max_tokens limit.
         """
-        self.token_len = token_len_func
-        self.TRUNCATED_LEN = self.token_len(TRUNCATED)
         if precise == True:
             raise Exception("precise truncation is not yet implemented")
         if tokens is None:
@@ -86,11 +88,10 @@ class SubPrompt:
         which is acceptable for our intended use.
         """
         if isinstance(o, str):
-            o = SubPrompt(o, token_len_func = self.token_len)
+            o = self.__class__(o)
         
-        return SubPrompt(text   = self.text + "\n" + o.text,
-                         tokens = self.tokens  + 1 + o.tokens,
-                         token_len_func = self.token_len)
+        return self.__class__(text   = self.text + "\n" + o.text,
+                              tokens = self.tokens  + 1 + o.tokens)
     
     def __str__(self):
         """

@@ -8,12 +8,10 @@ from random import sample
 
 class StoryTask(CompletionTask):
 
-    PROMPT_PREFIX = "Tell me a story about the following animals:"
-
     animals = ['cow', 'horse', 'pig', 'dog', 'cat']
 
     def make_story(self):
-        prompt = self.subprompt(self.PROMPT_PREFIX)
+        prompt = self.PREFIX
 
         for animal in sample(self.animals, 2):
             prompt += animal

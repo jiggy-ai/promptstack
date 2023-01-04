@@ -38,7 +38,23 @@ def GPT3CompletionLimits(min_prompt:int,
 
 
 
-RETRY_COUNT : int  = 5
+
+TRUNCATED_TOKEN_LEN = len(tokenizer(SubPrompt.TRUNCATED)['input_ids'])
+
+class GPT2SubPrompt(SubPrompt):
+    def token_len(self, text : str) -> int:
+        """
+        model specific tokenizer
+        return the number of model-specific tokens in the text string
+        """
+        return len(tokenizer(text)['input_ids'])
+    
+    def truncated_token_len(self):
+        return TRUNCATED_TOKEN_LEN
+
+
+
+RETRY_COUNT = 5
 
 class OpenAIModelTask(ModelTask):
     """
@@ -50,13 +66,12 @@ class OpenAIModelTask(ModelTask):
 
     config      : ModelConfig
 
-    def token_len(self, text : str) -> int:
+    @classmethod
+    def SubPrompt(cls):
         """
-        model specific tokenizer
-        return the number of model-specific tokens in the text string
+        return a SubPrompt Class with model-specific tokenizer
         """
-        return len(tokenizer(text)['input_ids'])
-
+        return GPT2SubPrompt
     
     def completion(self, prompt : str, max_completion_tokens : int) -> str:
         """
@@ -90,19 +105,6 @@ class OpenAIModelTask(ModelTask):
                 raise
 
     
-    def subprompt(self,
-                  text: str,
-                  max_tokens=None,
-                  truncate=False,
-                  precise=False) -> SubPrompt:
-        """
-        return a SubPrompt configured with model-specific tokenizer
-        """
-        return SubPrompt(text           = text,
-                         max_tokens     = max_tokens,
-                         truncate       = truncate,
-                         precise        = precise,
-                         token_len_func = self.token_len)
 
 
         

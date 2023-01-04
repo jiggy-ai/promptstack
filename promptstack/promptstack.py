@@ -2,6 +2,8 @@
 # PromptStack 
 # Copyright (C) 2022 Jiggy AI
 
+from loguru import logger
+from os import listdir
 from time import time
 from typing import Optional, List
 from .subprompt import SubPrompt
@@ -71,26 +73,17 @@ class ModelTask(BaseModel):
     """
     config : ModelConfig
 
-    def token_len(self, text : str) -> int:
+    @classmethod
+    def SubPrompt(cls):
         """
-        model specific tokenizer
-        return the number of model-specific tokens in the text string
+        return a SubPrompt Class with model-specific tokenizer
         """
         pass
+    
     
     def completion(self, prompt : str, max_completion_tokens : int) -> str:
         """
         return the completion string for the specified prompt, subject to max_completion_tokens limit
-        """
-        pass
-
-    def subprompt(self,
-                  text: str,
-                  max_tokens=None,
-                  truncate=False,
-                  precise=False) -> SubPrompt:
-        """
-        return a SubPrompt configured with model-specific tokenizer
         """
         pass
 
@@ -113,36 +106,39 @@ class ModelBackend(BaseModel):
 
     
     
-class CompletionTask(BaseModel):
+class CompletionTask:
     """
     A LLM completion task that shares a particular llm configuration and prompt/completion limit structure. 
     This would typically be a base class for an application-specific completion task which would typically
     include task-specific prompts/prompt stacks.
     """
-    backend     : ModelBackend
-    config      : ModelConfig
-    limits      : CompletionLimits
-    model_task  : ModelTask
-    
     def __init__(self,
                  backend     : ModelBackend,
                  config      : ModelConfig,
                  limits      : CompletionLimits) -> "CompletionTask":
 
-        _model_task = backend.model_task(config)
-        
-        super().__init__(backend=backend, config=config, limits=limits, model_task=_model_task)
+        self.backend = backend
+        self.config  = config
+        self.limits  = limits
+        self._model_task = backend.model_task(config)
+
+        # load prompts from ClassName.prompts directory
+        # set class attribute variables from the prompt filename
+        promptdir = self.__class__.__name__ + ".prompts"
+        SubPrompt = self.SubPrompt()
+        for promptname in listdir(promptdir):
+            prompt = open(f'{promptdir}/{promptname}').read().lstrip().rstrip()
+            logger.info(f'{self.__class__.__name__} found prompt {promptname}: {prompt}')
+            prompt = SubPrompt(prompt)
+            self.__setattr__(promptname, prompt)
         
 
-    def subprompt(self,
-                  text: str,
-                  max_tokens=None,
-                  truncate=False,
-                  precise=False) -> SubPrompt:
+    def SubPrompt(self):
+
         """
         return model-tokenizer specific subprompt
         """
-        return self.model_task.subprompt(text=text, max_tokens=max_tokens, truncate=truncate, precise=precise)
+        return self._model_task.SubPrompt()
 
 
     def max_prompt_tokens(self) -> int:
@@ -159,7 +155,7 @@ class CompletionTask(BaseModel):
         max_completion = self.limits.max_completion_tokens(prompt)
         
         # perform the completion inference
-        text = self.model_task.completion(prompt                = str(prompt),
+        text = self._model_task.completion(prompt                = str(prompt),
                                            max_completion_tokens = max_completion)
 
         completion = Completion(task        = self,
@@ -170,12 +166,13 @@ class CompletionTask(BaseModel):
 
 
     
-
-    
 class Completion(BaseModel):
     """
     An LLM completion, returned by CompletionTask.completion()
     """
+    class Config:
+        arbitrary_types_allowed = True
+        
     task       : CompletionTask     # the task that created this completion
     prompt     : str                #  the full prompt input
     text       : str                #  the completion text output from the model
