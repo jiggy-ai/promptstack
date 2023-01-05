@@ -56,6 +56,12 @@ class CompletionLimits(BaseModel):
             return self.max_completion
         return max_available_tokens
 
+    def remaining_prompt_tokens(self, prompt : SubPrompt) -> int:
+        """
+        returns the maximum prompt tokens remaining given an existing prompt and the specified limits
+        """
+        return self.max_prompt_tokens() - prompt.tokens
+    
     def max_prompt_tokens(self) -> int:
         """
         return the maximum prompt size in tokens
