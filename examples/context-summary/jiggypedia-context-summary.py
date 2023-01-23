@@ -6,7 +6,7 @@ task = ContextSummaryTask()
 
 #query = 'When was the naval ship Moskva sunk and who sunk it?'
 
-query = 'How many different Russian naval ships have been named Moskva?'
+query = 'List the different Russian naval ships named Moskva including the years in which they were commissioned and their final disposition.'
 
 SubPrompt=task.SubPrompt()
 
@@ -30,11 +30,17 @@ def token_chunks(text: str, tokens : int):
         yield "\n".join(current_lines)
 
 
-for r in search(query, k=20):
+for r in search(query, k=50, max_item_tokens=500):
 
+    if r.token_count > 500:
+        print("filter", r.name, r.token_count)
+        continue
     for text in token_chunks(r.text, 3000):
         summary = task.summary(query, text)
 
+        if "N/A" in summary.text:
+            print (f"{r.name} N/A")
+            continue
         #print("----------------------------------------------")
         print("----------------------------------------------")        
         print(r.name, r.token_count)
