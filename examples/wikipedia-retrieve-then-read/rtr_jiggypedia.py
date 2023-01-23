@@ -1,6 +1,5 @@
-# Promptstack quickstart
+# Promptstack RTR example with jiggypedia
 
-import wikipedia
 from promptstack import *
 from jiggypedia import search
 import numpy as  np

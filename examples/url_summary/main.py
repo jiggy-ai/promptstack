@@ -14,10 +14,10 @@ class UrlSummaryTask(CompletionTask):
     
     def __init__(self):
         model_config = ModelConfig(model       = 'text-davinci-003', # model name
-                                   temperature = 0.2, # model sampling temperature in [0,1]
+                                   temperature = 0.1, # model sampling temperature in [0,1]
                                    top_p       = 1) # sample from top_p cummulative token probability only
 
-        limits = CompletionLimits(min_prompt     = 40,
+        limits = CompletionLimits(min_prompt     = 0,
                                   min_completion = 300,
                                   max_completion = 600,
                                   max_context    = 4097)

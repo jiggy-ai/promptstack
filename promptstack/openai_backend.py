@@ -77,10 +77,7 @@ class OpenAIModelTask(ModelTask):
         """
         return the completion string for the specified prompt, subject to max_tokens limit
         """
-        print(prompt)
-        print(max_completion_tokens)
         def completion():
-            print(self.config.model)
             
             resp = openai.Completion.create(prompt      = prompt,
                                             max_tokens  = max_completion_tokens,
